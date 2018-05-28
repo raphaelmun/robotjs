@@ -135,7 +135,16 @@ void toggleKeyCode(MMKeyCode code, const bool down, MMKeyFlags flags)
 	if (flags & MOD_CONTROL) WIN32_KEY_EVENT_WAIT(K_CONTROL, dwFlags);
 	if (flags & MOD_SHIFT) WIN32_KEY_EVENT_WAIT(K_SHIFT, dwFlags);
 
-	win32KeyEvent(code, dwFlags);
+	// Ensure the regular key is also sent with EXTENDED flag
+	if (flags & ( MOD_META | MOD_ALT | MOD_CONTROL | MOD_SHIFT ))
+	{
+		win32KeyEvent(code, dwFlags | KEYEVENTF_EXTENDEDKEY);
+	}
+	else
+	{
+		win32KeyEvent(code, dwFlags);
+	}
+	
 #elif defined(USE_X11)
 	Display *display = XGetMainDisplay();
 	const Bool is_press = down ? True : False; /* Just to be safe. */
