@@ -97,7 +97,16 @@ void win32KeyEvent(int key, MMKeyFlags flags)
 		}
 	}
 
-	keybd_event(key, scan, flags, 0);
+	INPUT input = { 0 };
+	input.type = INPUT_KEYBOARD;
+	input.ki.wVk = key;
+	input.ki.dwFlags = flags;
+	// input.ki.wScan = scan;
+	// input.ki.dwFlags = KEYEVENTF_SCANCODE | flags;
+	// input.ki.time = 0;
+	// input.ki.dwExtraInfo = 0;
+	SendInput(1, &input, sizeof(INPUT));
+	// keybd_event(key, scan, flags, 0);
 }
 #endif
 
@@ -129,21 +138,36 @@ void toggleKeyCode(MMKeyCode code, const bool down, MMKeyFlags flags)
 #elif defined(IS_WINDOWS)
 	const DWORD dwFlags = down ? 0 : KEYEVENTF_KEYUP;
 
-	/* Parse modifier keys. */
-	if (flags & MOD_META) WIN32_KEY_EVENT_WAIT(K_META, dwFlags);
-	if (flags & MOD_ALT) WIN32_KEY_EVENT_WAIT(K_ALT, dwFlags);
-	if (flags & MOD_CONTROL) WIN32_KEY_EVENT_WAIT(K_CONTROL, dwFlags);
-	if (flags & MOD_SHIFT) WIN32_KEY_EVENT_WAIT(K_SHIFT, dwFlags);
+	INPUT input[5];
+	ZeroMemory(input, sizeof(input));
+	for( int i = 0; i < 4; i++ )
+	{
+		input[i].type = INPUT_KEYBOARD;
+		input[i].ki.wVk = 0;
+		input[i].ki.dwFlags = dwFlags;
+		input[i].ki.time = 0;
+		input[i].ki.dwExtraInfo = 0;
+	}
 
-	// Ensure the regular key is also sent with EXTENDED flag
-	if (flags & ( MOD_META | MOD_ALT | MOD_CONTROL | MOD_SHIFT ))
-	{
-		win32KeyEvent(code, dwFlags | KEYEVENTF_EXTENDEDKEY);
-	}
-	else
-	{
-		win32KeyEvent(code, dwFlags);
-	}
+	int count = 0;
+	if (flags & MOD_META) input[count++].ki.wVk = K_META;
+	if (flags & MOD_CONTROL) input[count++].ki.wVk = K_CONTROL;
+	if (flags & MOD_SHIFT) input[count++].ki.wVk = K_SHIFT;
+	if (flags & MOD_ALT) input[count++].ki.wVk = K_ALT;
+
+	input[count].ki.dwFlags = KEYEVENTF_SCANCODE | dwFlags;
+	input[count].ki.wScan = MapVirtualKey(code & 0xff, MAPVK_VK_TO_VSC);
+	count++;
+
+	SendInput(count, input, sizeof(INPUT));
+
+	/* Parse modifier keys. */
+	// if (flags & MOD_META) WIN32_KEY_EVENT_WAIT(K_META, dwFlags);
+	// if (flags & MOD_ALT) WIN32_KEY_EVENT_WAIT(K_ALT, dwFlags);
+	// if (flags & MOD_CONTROL) WIN32_KEY_EVENT_WAIT(K_CONTROL, dwFlags);
+	// if (flags & MOD_SHIFT) WIN32_KEY_EVENT_WAIT(K_SHIFT, dwFlags);
+
+	// win32KeyEvent(code, dwFlags);
 	
 #elif defined(USE_X11)
 	Display *display = XGetMainDisplay();
